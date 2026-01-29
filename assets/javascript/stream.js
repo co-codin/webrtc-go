@@ -7,8 +7,8 @@ function connectStream() {
 			},
 			{
 				'urls': 'turn:turn.videochat:3478',
-				'username': 'akhil',
-				'credential': 'akhil',
+				'username': 'user',
+				'credential': 'password',
 			}
 		]
 	})
