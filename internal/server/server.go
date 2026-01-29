@@ -33,8 +33,8 @@ func Run() error {
 	app.Use(cors.New())
 
 	app.Get("/", handlers.Welcome)
-	// app.Get("/room/create", handlers.RoomCreate)
-	// app.Get("/room/:uuid", handlers.Room)
+	app.Get("/room/create", handlers.RoomCreate)
+	app.Get("/room/:uuid", handlers.Room)
 	// app.Get("/room/:uuid/websocket", websocket.New(handlers.RoomWebsocket, websocket.Config{
 	// 	HandshakeTimeout: 10 * time.Second,
 	// }))
