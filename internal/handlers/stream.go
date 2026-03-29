@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"log"
+	"math/rand"
 
 	fasthttpws "github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v3"
@@ -22,12 +23,13 @@ func Stream(c fiber.Ctx) error {
 
 	ws := wsScheme(c)
 	host := c.Hostname()
+	username := fmt.Sprintf("User%04d", rand.Intn(10000))
 
 	return c.Render("stream", fiber.Map{
 		"Type":                "stream",
 		"NoStream":            !exists,
 		"StreamWebsocketAddr": fmt.Sprintf("%s://%s/stream/%s/websocket", ws, host, suuid),
-		"ChatWebsocketAddr":   fmt.Sprintf("%s://%s/stream/%s/chat/websocket", ws, host, suuid),
+		"ChatWebsocketAddr":   fmt.Sprintf("%s://%s/stream/%s/chat/websocket?username=%s", ws, host, suuid, username),
 		"ViewerWebsocketAddr": fmt.Sprintf("%s://%s/stream/%s/viewer/websocket", ws, host, suuid),
 	}, "layouts/main")
 }

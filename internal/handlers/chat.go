@@ -12,26 +12,30 @@ import (
 )
 
 // RoomChatWebsocket handles chat messages for room participants.
+// It reads an optional ?username= query parameter set by the Room page handler.
 func RoomChatWebsocket(c fiber.Ctx) error {
 	uuid := c.Params("uuid")
+	username := c.Query("username", "anonymous")
 	return wsUpgrader.Upgrade(c.RequestCtx(), func(conn *fasthttpws.Conn) {
 		room := webrtcpkg.CreateOrGetRoom(uuid)
-		serveChat(conn, room.Hub)
+		serveChat(conn, room.Hub, username)
 	})
 }
 
 // StreamChatWebsocket handles chat messages for stream viewers.
 func StreamChatWebsocket(c fiber.Ctx) error {
 	suuid := c.Params("suuid")
+	username := c.Query("username", "anonymous")
 	return wsUpgrader.Upgrade(c.RequestCtx(), func(conn *fasthttpws.Conn) {
 		sr := webrtcpkg.CreateOrGetStreamRoom(suuid)
-		serveChat(conn, sr.Hub)
+		serveChat(conn, sr.Hub, username)
 	})
 }
 
 // serveChat registers the connection with the hub, pumps incoming messages
 // to the broadcast channel, and writes outgoing messages back to the client.
-func serveChat(conn *fasthttpws.Conn, hub *chat.Hub) {
+// Outgoing messages are prefixed with "username: " for attribution.
+func serveChat(conn *fasthttpws.Conn, hub *chat.Hub, username string) {
 	client := chat.NewClient(hub)
 	hub.Register(client)
 	defer hub.Unregister(client)
@@ -54,7 +58,7 @@ func serveChat(conn *fasthttpws.Conn, hub *chat.Hub) {
 		if err != nil {
 			break
 		}
-		hub.Broadcast <- msg
+		hub.Broadcast <- []byte(username + ": " + string(msg))
 	}
 	<-done
 }

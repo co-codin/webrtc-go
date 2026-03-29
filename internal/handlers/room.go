@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"log"
+	"math/rand"
 
 	fasthttpws "github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v3"
@@ -25,13 +26,14 @@ func Room(c fiber.Ctx) error {
 	ws := wsScheme(c)
 	scheme := c.Protocol()
 	host := c.Hostname()
+	username := fmt.Sprintf("User%04d", rand.Intn(10000))
 
 	return c.Render("peer", fiber.Map{
 		"Type":                "room",
 		"RoomLink":            fmt.Sprintf("%s://%s/room/%s", scheme, host, uuid),
 		"StreamLink":          fmt.Sprintf("%s://%s/stream/%s", scheme, host, uuid),
 		"RoomWebsocketAddr":   fmt.Sprintf("%s://%s/room/%s/websocket", ws, host, uuid),
-		"ChatWebsocketAddr":   fmt.Sprintf("%s://%s/room/%s/chat/websocket", ws, host, uuid),
+		"ChatWebsocketAddr":   fmt.Sprintf("%s://%s/room/%s/chat/websocket?username=%s", ws, host, uuid, username),
 		"ViewerWebsocketAddr": fmt.Sprintf("%s://%s/room/%s/viewer/websocket", ws, host, uuid),
 	}, "layouts/main")
 }
