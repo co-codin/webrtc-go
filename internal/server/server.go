@@ -2,7 +2,10 @@ package server
 
 import (
 	"flag"
+	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"webrtc-go/internal/handlers"
 
 	"github.com/gofiber/fiber/v3"
@@ -31,6 +34,11 @@ func Run() error {
 	app.Use(logger.New())
 	app.Use(cors.New())
 
+	// Health check — used by Docker and load balancers.
+	app.Get("/health", func(c fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+
 	// HTTP routes
 	app.Get("/", handlers.Welcome)
 	app.Get("/room/create", handlers.RoomCreate)
@@ -49,6 +57,17 @@ func Run() error {
 
 	// Static assets
 	app.Get("/*", static.New("./assets"))
+
+	// Graceful shutdown on SIGTERM / SIGINT.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		<-quit
+		log.Println("shutting down server…")
+		if err := app.Shutdown(); err != nil {
+			log.Println("shutdown error:", err)
+		}
+	}()
 
 	return app.Listen(*addr, fiber.ListenConfig{
 		CertFile:    *cert,
