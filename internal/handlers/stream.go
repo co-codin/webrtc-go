@@ -1,21 +1,15 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 
 	fasthttpws "github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v3"
 	pionwebrtc "github.com/pion/webrtc/v3"
-	"github.com/valyala/fasthttp"
 
 	webrtcpkg "webrtc-go/pkg/webrtc"
 )
-
-var streamUpgrader = fasthttpws.FastHTTPUpgrader{
-	CheckOrigin: func(_ *fasthttp.RequestCtx) bool { return true },
-}
 
 // Stream renders the viewer page. If no room exists for the given UUID the
 // template receives NoStream=true and shows an error message.
@@ -26,11 +20,7 @@ func Stream(c fiber.Ctx) error {
 	_, exists := webrtcpkg.Rooms[suuid]
 	webrtcpkg.RoomsLock.RUnlock()
 
-	scheme := c.Protocol()
-	ws := "ws"
-	if scheme == "https" {
-		ws = "wss"
-	}
+	ws := wsScheme(c)
 	host := c.Hostname()
 
 	return c.Render("stream", fiber.Map{
@@ -43,11 +33,11 @@ func Stream(c fiber.Ctx) error {
 }
 
 // StreamWebsocket handles the WebRTC signaling WebSocket for stream viewers.
-// Viewers are added to the room's Peers so they receive all published tracks,
-// but they do not add transceivers for sending.
+// Viewers are added to the room's Peers so they receive all published tracks
+// but do not add transceivers for sending.
 func StreamWebsocket(c fiber.Ctx) error {
 	suuid := c.Params("suuid")
-	return streamUpgrader.Upgrade(c.RequestCtx(), func(conn *fasthttpws.Conn) {
+	return wsUpgrader.Upgrade(c.RequestCtx(), func(conn *fasthttpws.Conn) {
 		webrtcpkg.RoomsLock.RLock()
 		room, ok := webrtcpkg.Rooms[suuid]
 		webrtcpkg.RoomsLock.RUnlock()
@@ -71,39 +61,6 @@ func StreamWebsocket(c fiber.Ctx) error {
 		defer room.Peers.SignalPeerConnections()
 
 		room.Peers.SignalPeerConnections()
-
-		msg := &webrtcpkg.WebsocketMessage{}
-		for {
-			_, raw, err := conn.ReadMessage()
-			if err != nil {
-				return
-			}
-			if err := json.Unmarshal(raw, msg); err != nil {
-				log.Println("StreamWebsocket unmarshal:", err)
-				return
-			}
-			switch msg.Event {
-			case "answer":
-				answer := pionwebrtc.SessionDescription{}
-				if err := json.Unmarshal([]byte(msg.Data), &answer); err != nil {
-					log.Println("StreamWebsocket answer unmarshal:", err)
-					continue
-				}
-				if err := pc.SetRemoteDescription(answer); err != nil {
-					log.Println("StreamWebsocket SetRemoteDescription:", err)
-					continue
-				}
-			case "candidate":
-				candidate := pionwebrtc.ICECandidateInit{}
-				if err := json.Unmarshal([]byte(msg.Data), &candidate); err != nil {
-					log.Println("StreamWebsocket candidate unmarshal:", err)
-					continue
-				}
-				if err := pc.AddICECandidate(candidate); err != nil {
-					log.Println("StreamWebsocket AddICECandidate:", err)
-					continue
-				}
-			}
-		}
+		webrtcpkg.RunSignalingLoop(conn, pc, "StreamWebsocket")
 	})
 }

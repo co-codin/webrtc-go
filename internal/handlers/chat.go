@@ -6,24 +6,15 @@ import (
 
 	fasthttpws "github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v3"
-	"github.com/valyala/fasthttp"
 
 	"webrtc-go/pkg/chat"
 	webrtcpkg "webrtc-go/pkg/webrtc"
 )
 
-var chatUpgrader = fasthttpws.FastHTTPUpgrader{
-	CheckOrigin: func(_ *fasthttp.RequestCtx) bool { return true },
-}
-
-var viewerUpgrader = fasthttpws.FastHTTPUpgrader{
-	CheckOrigin: func(_ *fasthttp.RequestCtx) bool { return true },
-}
-
 // RoomChatWebsocket handles chat messages for room participants.
 func RoomChatWebsocket(c fiber.Ctx) error {
 	uuid := c.Params("uuid")
-	return chatUpgrader.Upgrade(c.RequestCtx(), func(conn *fasthttpws.Conn) {
+	return wsUpgrader.Upgrade(c.RequestCtx(), func(conn *fasthttpws.Conn) {
 		room := webrtcpkg.CreateOrGetRoom(uuid)
 		serveChat(conn, room.Hub)
 	})
@@ -32,7 +23,7 @@ func RoomChatWebsocket(c fiber.Ctx) error {
 // StreamChatWebsocket handles chat messages for stream viewers.
 func StreamChatWebsocket(c fiber.Ctx) error {
 	suuid := c.Params("suuid")
-	return chatUpgrader.Upgrade(c.RequestCtx(), func(conn *fasthttpws.Conn) {
+	return wsUpgrader.Upgrade(c.RequestCtx(), func(conn *fasthttpws.Conn) {
 		sr := webrtcpkg.CreateOrGetStreamRoom(suuid)
 		serveChat(conn, sr.Hub)
 	})
@@ -72,7 +63,7 @@ func serveChat(conn *fasthttpws.Conn, hub *chat.Hub) {
 // updates to every connected viewer WebSocket.
 func RoomViewerWebsocket(c fiber.Ctx) error {
 	uuid := c.Params("uuid")
-	return viewerUpgrader.Upgrade(c.RequestCtx(), func(conn *fasthttpws.Conn) {
+	return wsUpgrader.Upgrade(c.RequestCtx(), func(conn *fasthttpws.Conn) {
 		room := webrtcpkg.CreateOrGetRoom(uuid)
 		serveViewerCount(conn, room.ViewerHub, room.IncrementViewers, room.DecrementViewers)
 	})
@@ -81,7 +72,7 @@ func RoomViewerWebsocket(c fiber.Ctx) error {
 // StreamViewerWebsocket tracks the viewer count for a stream.
 func StreamViewerWebsocket(c fiber.Ctx) error {
 	suuid := c.Params("suuid")
-	return viewerUpgrader.Upgrade(c.RequestCtx(), func(conn *fasthttpws.Conn) {
+	return wsUpgrader.Upgrade(c.RequestCtx(), func(conn *fasthttpws.Conn) {
 		sr := webrtcpkg.CreateOrGetStreamRoom(suuid)
 		serveViewerCount(conn, sr.ViewerHub, sr.IncrementViewers, sr.DecrementViewers)
 	})

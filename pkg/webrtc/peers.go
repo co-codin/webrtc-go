@@ -176,6 +176,50 @@ func (p *Peers) dispatchKeyFrame() {
 	}
 }
 
+// MessageReader reads raw WebSocket frames.
+type MessageReader interface {
+	ReadMessage() (messageType int, p []byte, err error)
+}
+
+// RunSignalingLoop reads answer and candidate messages from conn and applies
+// them to pc. It returns when the connection closes or an unrecoverable error
+// occurs, making it a drop-in replacement for the per-handler signaling loops.
+func RunSignalingLoop(conn MessageReader, pc *pionwebrtc.PeerConnection, logPrefix string) {
+	msg := &WebsocketMessage{}
+	for {
+		_, raw, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		if err := json.Unmarshal(raw, msg); err != nil {
+			log.Println(logPrefix, "unmarshal:", err)
+			return
+		}
+		switch msg.Event {
+		case "answer":
+			answer := pionwebrtc.SessionDescription{}
+			if err := json.Unmarshal([]byte(msg.Data), &answer); err != nil {
+				log.Println(logPrefix, "answer:", err)
+				continue
+			}
+			if err := pc.SetRemoteDescription(answer); err != nil {
+				log.Println(logPrefix, "SetRemoteDescription:", err)
+				continue
+			}
+		case "candidate":
+			candidate := pionwebrtc.ICECandidateInit{}
+			if err := json.Unmarshal([]byte(msg.Data), &candidate); err != nil {
+				log.Println(logPrefix, "candidate:", err)
+				continue
+			}
+			if err := pc.AddICECandidate(candidate); err != nil {
+				log.Println(logPrefix, "AddICECandidate:", err)
+				continue
+			}
+		}
+	}
+}
+
 // AddPeerConnection registers a new connection, wires up its event handlers,
 // and returns so the caller can start the WebSocket read loop.
 func (p *Peers) AddPeerConnection(pc *pionwebrtc.PeerConnection, ws *ThreadSafeWriter) {
