@@ -42,6 +42,12 @@ func RoomWebsocket(c fiber.Ctx) error {
 	return wsUpgrader.Upgrade(c.RequestCtx(), func(conn *fasthttpws.Conn) {
 		room := webrtcpkg.CreateOrGetRoom(uuid)
 
+		if room.Peers.IsFull(MaxPeers) {
+			_ = conn.WriteMessage(fasthttpws.TextMessage,
+				[]byte(`{"event":"error","data":"room is full"}`))
+			return
+		}
+
 		pc, err := pionwebrtc.NewPeerConnection(pionwebrtc.Configuration{
 			ICEServers: []pionwebrtc.ICEServer{
 				{URLs: []string{"stun:stun.l.google.com:19302"}},

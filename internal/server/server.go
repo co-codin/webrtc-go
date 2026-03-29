@@ -16,9 +16,10 @@ import (
 )
 
 var (
-	addr = flag.String("addr", ":"+os.Getenv("PORT"), "")
-	cert = flag.String("cert", "", "")
-	key  = flag.String("key", "", "")
+	addr     = flag.String("addr", ":"+os.Getenv("PORT"), "")
+	cert     = flag.String("cert", "", "")
+	key      = flag.String("key", "", "")
+	maxPeers = flag.Int("max-peers", 8, "maximum number of peers per room (stream viewers are not counted)")
 )
 
 func Run() error {
@@ -27,6 +28,7 @@ func Run() error {
 	if *addr == ":" || *addr == "" {
 		*addr = ":8080"
 	}
+	handlers.MaxPeers = *maxPeers
 
 	engine := html.New("./views", ".html")
 

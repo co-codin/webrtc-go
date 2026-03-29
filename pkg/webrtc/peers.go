@@ -53,6 +53,13 @@ func NewPeers() *Peers {
 	}
 }
 
+// IsFull reports whether the number of active connections has reached max.
+func (p *Peers) IsFull(max int) bool {
+	p.ListLock.RLock()
+	defer p.ListLock.RUnlock()
+	return len(p.Connections) >= max
+}
+
 // addTrack creates a local copy of an incoming remote track and signals all peers.
 func (p *Peers) addTrack(t *pionwebrtc.TrackRemote) *pionwebrtc.TrackLocalStaticRTP {
 	p.ListLock.Lock()
