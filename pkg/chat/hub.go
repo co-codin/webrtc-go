@@ -6,6 +6,7 @@ type Hub struct {
 	Broadcast  chan []byte
 	register   chan *Client
 	unregister chan *Client
+	stop       chan struct{}
 }
 
 func NewHub() *Hub {
@@ -14,6 +15,7 @@ func NewHub() *Hub {
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]bool),
+		stop:       make(chan struct{}),
 	}
 }
 
@@ -25,9 +27,17 @@ func (h *Hub) Unregister(c *Client) {
 	h.unregister <- c
 }
 
+// Stop signals the Run goroutine to exit. Call it only after all clients have
+// unregistered to avoid blocking sends on the register/unregister channels.
+func (h *Hub) Stop() {
+	close(h.stop)
+}
+
 func (h *Hub) Run() {
 	for {
 		select {
+		case <-h.stop:
+			return
 		case client := <-h.register:
 			h.clients[client] = true
 		case client := <-h.unregister:

@@ -73,7 +73,10 @@ func RoomWebsocket(c fiber.Ctx) error {
 
 		writer := &webrtcpkg.ThreadSafeWriter{Conn: conn}
 		room.Peers.AddPeerConnection(pc, writer)
-		defer room.Peers.SignalPeerConnections()
+		defer func() {
+			room.Peers.SignalPeerConnections()
+			webrtcpkg.CleanupRoomIfEmpty(uuid)
+		}()
 
 		room.Peers.SignalPeerConnections()
 		webrtcpkg.RunSignalingLoop(conn, pc, "RoomWebsocket")

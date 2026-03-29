@@ -29,3 +29,9 @@ func (v *ViewerState) IncrementViewers() int32 {
 func (v *ViewerState) DecrementViewers() int32 {
 	return atomic.AddInt32(&v.ViewerCount, -1)
 }
+
+// Stop shuts down both hub goroutines. Call only after all clients have left.
+func (v *ViewerState) Stop() {
+	v.Hub.Stop()
+	v.ViewerHub.Stop()
+}

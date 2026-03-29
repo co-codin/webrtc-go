@@ -1,6 +1,9 @@
 package webrtc
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 // StreamRoom holds the chat and viewer-count state for stream viewers.
 // WebRTC tracks are served from the corresponding Room's Peers.
@@ -25,4 +28,25 @@ func CreateOrGetStreamRoom(suuid string) *StreamRoom {
 	sr := &StreamRoom{ViewerState: newViewerState()}
 	StreamRooms[suuid] = sr
 	return sr
+}
+
+// CleanupStreamRoom removes a stream room from the global map and stops its
+// hub goroutines. It is called by CleanupRoomIfEmpty when the parent room
+// is deleted.
+func CleanupStreamRoom(suuid string) {
+	StreamRoomsLock.Lock()
+
+	sr, ok := StreamRooms[suuid]
+	if !ok {
+		StreamRoomsLock.Unlock()
+		return
+	}
+
+	delete(StreamRooms, suuid)
+	StreamRoomsLock.Unlock()
+
+	go func() {
+		time.Sleep(time.Second)
+		sr.Stop()
+	}()
 }
