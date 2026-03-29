@@ -14,17 +14,25 @@ services:
     command: ["--addr", ":8080"]
     depends_on:
       - turn
+    environment:
+      - PORT=8080
 
   turn:
     image: coturn/coturn:latest
     restart: always
-    ports:
-      - "3478:3478/tcp"
-      - "3478:3478/udp"
+    network_mode: host
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    # TURN credentials must match the ICE servers configured in the browser JS.
+    # Override TURN_USER and TURN_PASS via a .env file or environment variables.
     command: >
       -n
       --log-file=stdout
-      --user=user:password
-      --realm=videochat
+      --user=${TURN_USER:-user}:${TURN_PASS:-password}
+      --realm=${TURN_REALM:-videochat}
       --min-port=49152
       --max-port=65535
+      --no-stun
