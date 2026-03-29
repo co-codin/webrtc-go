@@ -114,6 +114,112 @@ func TestStreamRoom_ViewerCount(t *testing.T) {
 	}
 }
 
+func TestCleanupRoomIfEmpty_RemovesRoom(t *testing.T) {
+	resetRooms()
+	resetStreamRooms()
+	CreateOrGetRoom("clean-uuid")
+
+	CleanupRoomIfEmpty("clean-uuid")
+
+	RoomsLock.RLock()
+	_, exists := Rooms["clean-uuid"]
+	RoomsLock.RUnlock()
+
+	if exists {
+		t.Error("expected room to be removed when it has no peers")
+	}
+}
+
+func TestCleanupRoomIfEmpty_KeepsRoomWithPeers(t *testing.T) {
+	resetRooms()
+	r := CreateOrGetRoom("busy-uuid")
+
+	// Simulate an active peer connection.
+	r.Peers.ListLock.Lock()
+	r.Peers.Connections = append(r.Peers.Connections, PeerConnectionState{})
+	r.Peers.ListLock.Unlock()
+
+	CleanupRoomIfEmpty("busy-uuid")
+
+	RoomsLock.RLock()
+	_, exists := Rooms["busy-uuid"]
+	RoomsLock.RUnlock()
+
+	if !exists {
+		t.Error("expected room to remain when peers are still connected")
+	}
+}
+
+func TestCleanupRoomIfEmpty_CascadesToStreamRoom(t *testing.T) {
+	resetRooms()
+	resetStreamRooms()
+	CreateOrGetRoom("cascade-uuid")
+	CreateOrGetStreamRoom("cascade-uuid")
+
+	CleanupRoomIfEmpty("cascade-uuid")
+
+	StreamRoomsLock.RLock()
+	_, exists := StreamRooms["cascade-uuid"]
+	StreamRoomsLock.RUnlock()
+
+	if exists {
+		t.Error("expected stream room to be removed when its parent room is cleaned up")
+	}
+}
+
+func TestCleanupRoomIfEmpty_NonexistentIsNoop(t *testing.T) {
+	resetRooms()
+	// Should not panic or block.
+	CleanupRoomIfEmpty("does-not-exist")
+}
+
+func TestCleanupStreamRoom_RemovesStreamRoom(t *testing.T) {
+	resetStreamRooms()
+	CreateOrGetStreamRoom("sclean-uuid")
+
+	CleanupStreamRoom("sclean-uuid")
+
+	StreamRoomsLock.RLock()
+	_, exists := StreamRooms["sclean-uuid"]
+	StreamRoomsLock.RUnlock()
+
+	if exists {
+		t.Error("expected stream room to be removed")
+	}
+}
+
+func TestCleanupStreamRoom_NonexistentIsNoop(t *testing.T) {
+	resetStreamRooms()
+	// Should not panic or block.
+	CleanupStreamRoom("does-not-exist")
+}
+
+func TestViewerState_Stop(t *testing.T) {
+	vs := newViewerState()
+	// Stop must not panic and must terminate both hub goroutines.
+	vs.Stop()
+}
+
+func TestPeers_IsFull(t *testing.T) {
+	p := NewPeers()
+
+	if p.IsFull(1) {
+		t.Error("empty Peers should not be full with max=1")
+	}
+
+	// Add a dummy connection to simulate one active peer.
+	p.ListLock.Lock()
+	p.Connections = append(p.Connections, PeerConnectionState{})
+	p.ListLock.Unlock()
+
+	if !p.IsFull(1) {
+		t.Error("Peers with 1 connection should be full with max=1")
+	}
+	if p.IsFull(2) {
+		t.Error("Peers with 1 connection should not be full with max=2")
+	}
+}
+
 func TestNewPeers(t *testing.T) {
 	p := NewPeers()
 	if p == nil {

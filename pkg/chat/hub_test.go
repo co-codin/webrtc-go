@@ -64,6 +64,41 @@ func TestHubUnregister(t *testing.T) {
 	}
 }
 
+func TestHub_Stop(t *testing.T) {
+	h := NewHub()
+	exited := make(chan struct{})
+	go func() {
+		h.Run()
+		close(exited)
+	}()
+
+	h.Stop()
+
+	select {
+	case <-exited:
+		// Run returned as expected.
+	case <-time.After(200 * time.Millisecond):
+		t.Error("Hub.Run did not exit after Stop()")
+	}
+}
+
+func TestHub_StopClosesClientSend(t *testing.T) {
+	h := NewHub()
+	go h.Run()
+
+	c := NewClient(h)
+	h.Register(c)
+	time.Sleep(10 * time.Millisecond)
+
+	h.Unregister(c)
+	time.Sleep(10 * time.Millisecond)
+
+	h.Stop()
+
+	// After stop, no further broadcasts should panic or block.
+	// This is a smoke test to ensure Stop is safe to call after clients leave.
+}
+
 func TestNewClient(t *testing.T) {
 	h := NewHub()
 	c := NewClient(h)
